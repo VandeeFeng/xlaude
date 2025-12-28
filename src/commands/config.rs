@@ -1,11 +1,37 @@
 use std::fs;
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 use anyhow::{Context, Result, anyhow, bail};
 
+fn which_exists(executable: &str) -> bool {
+    Command::new(executable)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .is_ok()
+}
+
+fn resolve_editor(state: &crate::state::XlaudeState) -> Result<String> {
+    if let Ok(editor) = std::env::var("EDITOR") {
+        return Ok(editor);
+    }
+
+    if let Some(editor) = &state.editor {
+        return Ok(editor.clone());
+    }
+
+    for editor in ["nvim", "vim", "vi", "nano"] {
+        if which_exists(editor) {
+            return Ok(editor.to_string());
+        }
+    }
+
+    bail!("No suitable editor found. Please set EDITOR environment variable or add editor to state.json");
+}
+
 pub fn handle_config() -> Result<()> {
-    let editor = std::env::var("EDITOR")
-        .context("EDITOR environment variable is not set; please export your preferred editor")?;
+    let state = crate::state::XlaudeState::load()?;
+    let editor = resolve_editor(&state)?;
 
     let parts = shell_words::split(&editor)
         .map_err(|e| anyhow!("Failed to parse EDITOR command: {editor} ({e})"))?;

@@ -5,6 +5,21 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
+use std::process::{Command, Stdio};
+
+fn detect_default_editor() -> Option<String> {
+    for editor in ["nvim", "vim", "vi", "nano"] {
+        if Command::new(editor)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .is_ok()
+        {
+            return Some(editor.to_string());
+        }
+    }
+    None
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorktreeInfo {
@@ -79,7 +94,10 @@ impl XlaudeState {
 
             Ok(state)
         } else {
-            Ok(Self::default())
+            Ok(Self {
+                editor: detect_default_editor(),
+                ..Self::default()
+            })
         }
     }
 
